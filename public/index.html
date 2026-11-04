@@ -1,0 +1,1777 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Barsalitsuni Video Generator • The Power of the Pudú</title>
+    <meta name="description" content="Generador de video Seam Carving audio-reactivo de The Power of the Pudú y Barsalitsuni (El gatito del final)">
+    <meta name="theme-color" content="#070b09">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Fuentes y librerías -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Orbitron:wght@500;700;900&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="ffmpeg.min.js"></script>
+    <script src="audioprocessor.js"></script>
+
+    <style>
+        :root {
+            --neon-green: #00ffaa;
+            --neon-cyan: #00e5ff;
+            --pudu-gold: #ffb703;
+            --metal-crimson: #ff0055;
+            --bg-dark: #070b09;
+            --panel-bg: rgba(14, 23, 18, 0.94);
+            --card-border: rgba(0, 255, 170, 0.28);
+            --text-dim: #9aa8a0;
+            --font-metal: 'Cinzel', serif;
+            --font-tech: 'Orbitron', monospace;
+            --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            background: var(--bg-dark);
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 255, 170, 0.12) 0%, transparent 60%),
+                radial-gradient(circle at 10% 90%, rgba(255, 0, 85, 0.08) 0%, transparent 50%),
+                linear-gradient(180deg, #070b09 0%, #030504 100%);
+            color: #ffffff;
+            font-family: var(--font-ui);
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            max-width: 540px;
+            margin: 0 auto;
+            padding: calc(10px + var(--safe-top)) 14px calc(12px + var(--safe-bottom)) 14px;
+            position: relative;
+        }
+
+        /* HEADER BRANDING */
+        header {
+            text-align: center;
+            flex-shrink: 0;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 10;
+        }
+
+        .band-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(255, 183, 3, 0.12);
+            border: 1px solid rgba(255, 183, 3, 0.45);
+            color: var(--pudu-gold);
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            font-family: var(--font-tech);
+            margin-bottom: 4px;
+            box-shadow: 0 0 10px rgba(255, 183, 3, 0.2);
+        }
+
+        h1.app-title {
+            font-family: var(--font-metal);
+            font-size: 1.25rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #ffffff 0%, var(--neon-green) 50%, var(--neon-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 16px rgba(0, 255, 170, 0.35);
+            margin: 0;
+            line-height: 1.15;
+        }
+
+        .app-subtitle {
+            font-size: 0.68rem;
+            color: var(--text-dim);
+            font-family: var(--font-tech);
+            letter-spacing: 1px;
+            margin-top: 3px;
+        }
+
+        /* VISTAS */
+        .view {
+            display: none;
+            flex-direction: column;
+            flex-grow: 1;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            animation: fadeIn 0.22s ease-out;
+            padding-bottom: 6px;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* TARJETAS Y CONTROLES */
+        .card {
+            background: var(--panel-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 14px;
+            margin-bottom: 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* DROP ZONE (VISTA INICIAL) */
+        .drop-zone {
+            border: 2px dashed rgba(0, 255, 170, 0.4);
+            border-radius: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 18px;
+            cursor: pointer;
+            background: rgba(0, 255, 170, 0.03);
+            transition: all 0.25s ease;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drop-zone:hover, .drop-zone:active {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 170, 0.07);
+            box-shadow: 0 0 25px rgba(0, 255, 170, 0.25);
+        }
+
+        .drop-zone .icon-hero {
+            font-size: 3.5rem;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 0 16px rgba(0, 255, 170, 0.5));
+            animation: floatGently 3s ease-in-out infinite;
+        }
+
+        @keyframes floatGently {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .clip-preview-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.45);
+            border: 1px solid rgba(255, 183, 3, 0.3);
+            border-radius: 14px;
+            padding: 8px 12px;
+            margin-top: 12px;
+            width: 100%;
+            text-align: left;
+        }
+
+        .clip-preview-card img {
+            width: 58px;
+            height: 44px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1px solid var(--pudu-gold);
+            flex-shrink: 0;
+        }
+
+        .feature-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            margin-top: 14px;
+        }
+
+        .pill {
+            font-size: 0.62rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #d1ddd6;
+            font-family: var(--font-tech);
+        }
+
+        /* CONTENEDOR DE VIDEO */
+        .video-box {
+            position: relative;
+            width: 100%;
+            height: 250px;
+            min-height: 200px;
+            max-height: 38dvh;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 10px;
+            border: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .video-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        /* CÁMARA EN VIVO */
+        #view-camera {
+            position: relative;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .rec-tag {
+            background: rgba(255, 0, 85, 0.85);
+            color: white;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-tech);
+            letter-spacing: 1px;
+            box-shadow: 0 0 12px rgba(255, 0, 85, 0.6);
+            pointer-events: auto;
+        }
+
+        .rec-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: white;
+            animation: pulseRec 1s infinite;
+        }
+
+        @keyframes pulseRec {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.2; transform: scale(0.8); }
+        }
+
+        .vu-meter-bar {
+            height: 6px;
+            background: #111;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 6px;
+            border: 1px solid #333;
+        }
+
+        .vu-meter-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--neon-green), var(--pudu-gold), var(--metal-crimson));
+            transition: width 0.05s ease;
+        }
+
+        /* TRIMMER DUAL */
+        .trimmer-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .trimmer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .trimmer-label {
+            font-size: 0.68rem;
+            font-family: var(--font-tech);
+            color: var(--neon-green);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .trimmer-time {
+            font-family: var(--font-tech);
+            font-size: 0.75rem;
+            color: var(--pudu-gold);
+            font-weight: 700;
+        }
+
+        .range-wrapper {
+            position: relative;
+            height: 48px;
+            background: #121815;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .range-track-highlight {
+            position: absolute;
+            height: 100%;
+            background: rgba(0, 255, 170, 0.2);
+            border-left: 2px solid var(--neon-green);
+            border-right: 2px solid var(--neon-green);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .dual-slider {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: none;
+            pointer-events: none;
+            -webkit-appearance: none;
+            appearance: none;
+            margin: 0;
+            z-index: 2;
+        }
+
+        .dual-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            pointer-events: auto;
+            width: 24px;
+            height: 48px;
+            background: linear-gradient(180deg, var(--neon-green) 0%, #009966 100%);
+            border-radius: 6px;
+            cursor: ew-resize;
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.6);
+            border: 1px solid #ffffff;
+        }
+
+        .dual-slider::-moz-range-thumb {
+            pointer-events: auto;
+            width: 24px;
+            height: 48px;
+            background: linear-gradient(180deg, var(--neon-green) 0%, #009966 100%);
+            border-radius: 6px;
+            cursor: ew-resize;
+            box-shadow: 0 0 10px rgba(0, 255, 170, 0.6);
+            border: 1px solid #ffffff;
+        }
+
+        /* GRID DE AJUSTES */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        .control-item {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 8px 10px;
+        }
+
+        .control-item label {
+            display: block;
+            font-size: 0.62rem;
+            color: var(--text-dim);
+            font-family: var(--font-tech);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 5px;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+        }
+
+        select {
+            background: #090e0b;
+            color: #fff;
+            border: 1px solid rgba(0, 255, 170, 0.3);
+            border-radius: 8px;
+            padding: 8px;
+            font-size: 0.78rem;
+            font-family: var(--font-ui);
+            cursor: pointer;
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .toggle-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--neon-green);
+            cursor: pointer;
+        }
+
+        .toggle-row span {
+            font-size: 0.72rem;
+            color: #ffffff;
+            font-family: var(--font-tech);
+        }
+
+        /* BOTONES */
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--neon-green) 0%, #00c988 100%);
+            color: #03140b;
+            border: none;
+            padding: 13px;
+            border-radius: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.82rem;
+            font-family: var(--font-tech);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 16px rgba(0, 255, 170, 0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover, .btn:active {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 255, 170, 0.5);
+        }
+
+        .btn:disabled {
+            background: #1c2621;
+            color: #556b60;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn-full {
+            grid-column: span 2;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            box-shadow: none;
+        }
+
+        .btn-outline:hover, .btn-outline:active {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+            background: rgba(0, 255, 170, 0.05);
+        }
+
+        .btn-crimson {
+            background: linear-gradient(135deg, var(--metal-crimson) 0%, #c40041 100%);
+            color: white;
+            box-shadow: 0 4px 16px rgba(255, 0, 85, 0.35);
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, var(--pudu-gold) 0%, #e09900 100%);
+            color: #211500;
+            box-shadow: 0 4px 16px rgba(255, 183, 3, 0.35);
+        }
+
+        /* PUDU ANIMATION EN PROCESAMIENTO */
+        #view-processing {
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .pudu-orb {
+            width: 160px;
+            height: 160px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border-radius: 50%;
+            border: 3px solid var(--neon-green);
+            box-shadow: 0 0 35px rgba(0, 255, 170, 0.4), inset 0 0 20px rgba(0, 255, 170, 0.2);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        #puduCanvas {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+        }
+
+        #puduVideoFallback {
+            width: 160px;
+            height: 160px;
+            object-fit: cover;
+            display: none;
+        }
+
+        .metal-mantra {
+            font-family: var(--font-metal);
+            font-size: 0.95rem;
+            color: #e2ede7;
+            font-style: italic;
+            margin-bottom: 15px;
+            max-width: 90%;
+            line-height: 1.4;
+            animation: breatheMantra 4s infinite ease-in-out;
+        }
+
+        @keyframes breatheMantra {
+            0%, 100% { opacity: 0.75; transform: scale(0.98); }
+            50% { opacity: 1; transform: scale(1.02); text-shadow: 0 0 12px var(--neon-green); }
+        }
+
+        #processStatus {
+            font-family: var(--font-tech);
+            font-size: 0.8rem;
+            color: var(--neon-cyan);
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        progress {
+            width: 100%;
+            height: 10px;
+            accent-color: var(--neon-green);
+            border-radius: 10px;
+            background: #111a15;
+            border: 1px solid rgba(0, 255, 170, 0.3);
+            margin-bottom: 12px;
+        }
+
+        .keepalive-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 229, 255, 0.08);
+            border: 1px solid rgba(0, 229, 255, 0.35);
+            border-radius: 14px;
+            padding: 10px 14px;
+            font-size: 0.68rem;
+            color: #bbf2f9;
+            text-align: left;
+            margin-top: 10px;
+            max-width: 95%;
+        }
+
+        .keepalive-banner .shield-icon {
+            font-size: 1.4rem;
+            color: var(--neon-cyan);
+            flex-shrink: 0;
+        }
+
+        /* RESULT VIEW */
+        .share-tips {
+            background: rgba(255, 183, 3, 0.08);
+            border: 1px solid rgba(255, 183, 3, 0.3);
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 0.7rem;
+            color: #fce4a6;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* NOTIFICACIÓN TOAST */
+        #toast {
+            position: fixed;
+            bottom: calc(20px + var(--safe-bottom));
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(7, 11, 9, 0.95);
+            border: 1px solid var(--neon-green);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 0.78rem;
+            font-family: var(--font-tech);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 255, 170, 0.3);
+            transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            z-index: 9999;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <!-- HEADER -->
+        <header>
+            <div class="band-badge">🐾 The Power of the Pudú • El Gatito del Final 🦌</div>
+            <h1 class="app-title">Barsalitsuni Video Generator</h1>
+            <div class="app-subtitle">Reactor Seam Carving Audio-Reactivo</div>
+        </header>
+
+        <!-- 1. VISTA INICIAL: SELECCIÓN / CARGA -->
+        <div id="view-start" class="view active">
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="videoInput" accept="video/*" hidden>
+                <div class="icon-hero">🦌⚡🐾</div>
+                <h3 style="font-family: var(--font-metal); font-size: 1.1rem; margin-bottom: 6px;">Toca para Cargar Video</h3>
+                <p style="font-size: 0.78rem; color: var(--text-dim); max-width: 280px;">Arrastra un archivo o pulsa aquí para abrir tu galería o archivos de video.</p>
+                
+                <div class="clip-preview-card">
+                    <img src="barsalitsuni_thumb.jpg" alt="Barsalitsuni" onerror="this.style.display='none'">
+                    <div>
+                        <div style="font-size: 0.74rem; font-weight: 700; color: #fff;">Inspirado en el videoclip</div>
+                        <div style="font-size: 0.65rem; color: var(--pudu-gold);">The Power of the Pudú - Barsalitsuni</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn btn-crimson" id="openCamBtn" style="margin-top: 12px;">
+                📷 GRABARME CON LA CÁMARA
+            </button>
+
+            <div class="feature-tags">
+                <span class="pill">⚡ Audio-Reactivo Real</span>
+                <span class="pill">📱 Optimizado Móvil / Desktop</span>
+                <span class="pill">🛡️ Render Segundo Plano</span>
+                <span class="pill">🐾 Kodkod Engine</span>
+            </div>
+        </div>
+
+        <!-- 2. VISTA CÁMARA EN VIVO -->
+        <div id="view-camera" class="view">
+            <div class="video-box" style="height: 380px; max-height: 55dvh;">
+                <video id="camLivePreview" autoplay muted playsinline webkit-playsinline></video>
+                <div class="camera-overlay">
+                    <div class="rec-tag" id="recBadge" style="display: none;">
+                        <span class="rec-dot"></span>
+                        <span id="recTimerText">00:00 / 00:10</span>
+                    </div>
+                    <button id="flipCamBtn" class="pill" style="pointer-events: auto; background: rgba(0,0,0,0.6); border-color: rgba(255,255,255,0.4); cursor: pointer;">
+                        🔄 Cambiar Cámara
+                    </button>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 10px 14px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.65rem; font-family: var(--font-tech); color: var(--neon-green);">
+                    <span>MICRÓFONO EN VIVO</span>
+                    <span id="vuLevelTxt">0%</span>
+                </div>
+                <div class="vu-meter-bar">
+                    <div id="vuMeterFill" class="vu-meter-fill"></div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-outline" id="cancelCamBtn">CANCELAR</button>
+                <button class="btn btn-crimson" id="recStartBtn">🔴 GRABAR (MAX 10S)</button>
+                <button class="btn btn-gold btn-full" id="recStopBtn" style="display: none;">⏹ DETENER Y USAR</button>
+            </div>
+        </div>
+
+        <!-- 3. VISTA EDICIÓN Y CONFIGURACIÓN AUDIO-REACTIVA -->
+        <div id="view-edit" class="view">
+            <div class="video-box">
+                <video id="trimPreview" loop playsinline webkit-playsinline></video>
+            </div>
+
+            <div class="trimmer-card">
+                <div class="trimmer-header">
+                    <span class="trimmer-label">✂️ RECORTAR SEGMENTO</span>
+                    <span id="timeDisplay" class="trimmer-time">0.0s - 4.0s (4.0s)</span>
+                </div>
+                <div class="range-wrapper">
+                    <div id="rangeHighlight" class="range-track-highlight"></div>
+                    <input type="range" id="startRange" class="dual-slider" step="0.1" value="0">
+                    <input type="range" id="endRange" class="dual-slider" step="0.1" value="0">
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="controls-grid">
+                    <div class="control-item">
+                        <label>Eje de Deformación</label>
+                        <select id="axisSelect">
+                            <option value="horizontal" selected>↔️ Ancho (Squish Horiz)</option>
+                            <option value="vertical">↕️ Alto (Squish Vert)</option>
+                            <option value="dual">⚡ Barsalitsuni Berserk</option>
+                        </select>
+                    </div>
+
+                    <div class="control-item">
+                        <label>Polaridad del Audio</label>
+                        <select id="polaritySelect">
+                            <option value="positive" selected>🔥 Deforma con Beats</option>
+                            <option value="negative">❄️ Deforma en Silencio</option>
+                        </select>
+                    </div>
+
+                    <div class="control-item">
+                        <label>Respuesta Sonora</label>
+                        <select id="smoothSelect">
+                            <option value="smooth" selected>🌊 Líquido Ondulante</option>
+                            <option value="strobe">⚡ Glitch Strobe</option>
+                        </select>
+                    </div>
+
+                    <div class="control-item">
+                        <label>Fuerza: <span id="strengthVal" style="color:var(--neon-green)">120%</span></label>
+                        <input type="range" id="strengthRange" min="20" max="250" value="120" style="height:22px; accent-color:var(--neon-green);">
+                    </div>
+
+                    <div class="control-item">
+                        <label>Resolución</label>
+                        <select id="resSelect">
+                            <option value="360|640">360p (Ultra Rápido)</option>
+                            <option value="480|854" selected>480p (Recomendado)</option>
+                            <option value="720|1280">720p (HD)</option>
+                        </select>
+                    </div>
+
+                    <div class="control-item">
+                        <label>FPS Render</label>
+                        <select id="fpsSelect">
+                            <option value="24" selected>24 FPS (Cinemático)</option>
+                            <option value="30">30 FPS (Fluido)</option>
+                            <option value="60">60 FPS (Ultra)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="toggle-row" style="margin-top: 4px; padding: 4px 6px;">
+                    <input type="checkbox" id="pitchShiftCheck">
+                    <span>🎸 Activar Pitch Shift Líquido en Audio</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-outline" id="backToStartBtn">ATRÁS</button>
+                <button class="btn" id="startRenderBtn">⚡ INICIAR GENERADOR</button>
+            </div>
+        </div>
+
+        <!-- 4. VISTA PROCESAMIENTO (PUDÚ GIRATORIO + TRUCO SPOTIFY) -->
+        <div id="view-processing" class="view">
+            <div class="pudu-orb">
+                <canvas id="puduCanvas" width="160" height="160"></canvas>
+                <video id="puduVideoFallback" src="pudu/rotating_pudu.mp4" autoplay loop muted playsinline webkit-playsinline></video>
+            </div>
+
+            <div class="metal-mantra" id="metalMantra">
+                "Respira y medita mientras el pudú y el gatito del final licúan tu video..."
+            </div>
+
+            <div id="processStatus">Iniciando motor FFmpeg...</div>
+            <progress id="progressBar" value="0" max="100"></progress>
+            <div id="frameCounter" style="font-family: var(--font-tech); font-size: 0.72rem; color: var(--text-dim); margin-bottom: 8px;">0%</div>
+
+            <div class="keepalive-banner">
+                <div class="shield-icon">🛡️</div>
+                <div>
+                    <strong>TRUCO SEGUNDO PLANO ACTIVO:</strong> Si minimizas o bloqueas el celular, Android mantendrá el render activo con la notificación de reproducción.
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. VISTA RESULTADO: PREVIEW + SHARE / DOWNLOAD -->
+        <div id="view-result" class="view">
+            <div class="video-box" style="height: 320px; max-height: 48dvh;">
+                <video id="finalVideo" controls loop playsinline webkit-playsinline></video>
+            </div>
+
+            <div class="card" style="padding: 12px;">
+                <div class="btn-group">
+                    <button class="btn btn-full" id="nativeShareBtn">
+                        📤 COMPARTIR (INSTAGRAM / TIKTOK / WHATSAPP)
+                    </button>
+                    <a id="downloadBtn" class="btn btn-gold" download="barsalitsuni_video.mp4">
+                        💾 DESCARGAR MP4
+                    </a>
+                    <button class="btn btn-outline" id="whatsAppBtn">
+                        💬 WHATSAPP
+                    </button>
+                    <button class="btn btn-outline btn-full" id="restartBtn" style="margin-top: 4px;">
+                        🔄 PROCESAR OTRO VIDEO
+                    </button>
+                </div>
+
+                <div class="share-tips">
+                    ✨ <strong>Tip:</strong> Puedes enviar el video por WhatsApp o compartirlo directamente a tus Stories o Reels de Instagram y TikTok.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICACIÓN -->
+    <div id="toast">🔔 Mensaje</div>
+
+    <script>
+        /* ==========================================================
+           BARSALITSUNI VIDEO GENERATOR - CORE ENGINE
+           The Power of the Pudú • El Gatito del Final
+           ========================================================== */
+
+        // FFmpeg Initialization
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({
+            log: false,
+            corePath: 'ffmpeg-core.js'
+        });
+
+        // Application State
+        let selectedFile = null;
+        let selectedBlob = null;
+        let videoDuration = 0;
+        let finalVideoBlob = null;
+        let finalVideoFile = null;
+
+        // Camera State
+        let cameraStream = null;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordInterval = null;
+        let recordTimeout = null;
+        let audioMeterInterval = null;
+        let currentFacingMode = 'user';
+        const MAX_REC_SECONDS = 10;
+
+        // Vistas
+        const views = {
+            start: document.getElementById('view-start'),
+            camera: document.getElementById('view-camera'),
+            edit: document.getElementById('view-edit'),
+            processing: document.getElementById('view-processing'),
+            result: document.getElementById('view-result')
+        };
+
+        function switchView(name) {
+            Object.values(views).forEach(v => v.classList.remove('active'));
+            if (views[name]) views[name].classList.add('active');
+            
+            // Pausar previews al salir de sus vistas
+            const trimPreview = document.getElementById('trimPreview');
+            const finalVideo = document.getElementById('finalVideo');
+            if (name !== 'edit') trimPreview.pause();
+            if (name !== 'result') finalVideo.pause();
+        }
+
+        function showToast(msg, ms = 2500) {
+            const t = document.getElementById('toast');
+            t.innerHTML = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), ms);
+        }
+
+        /* ==========================================================
+           1. CARGA DE ARCHIVO Y PREPARACIÓN DE VIDEO
+           ========================================================== */
+        const dropZone = document.getElementById('dropZone');
+        const videoInput = document.getElementById('videoInput');
+
+        dropZone.onclick = () => videoInput.click();
+
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--neon-green)'; };
+        dropZone.ondragleave = () => { dropZone.style.borderColor = 'rgba(0, 255, 170, 0.4)'; };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'rgba(0, 255, 170, 0.4)';
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                handleVideoSelection(e.dataTransfer.files[0]);
+            }
+        };
+
+        videoInput.onchange = (e) => {
+            if (e.target.files && e.target.files[0]) {
+                handleVideoSelection(e.target.files[0]);
+            }
+        };
+
+        async function handleVideoSelection(file) {
+            selectedFile = file;
+            selectedBlob = file;
+            const url = URL.createObjectURL(file);
+            const trimPreview = document.getElementById('trimPreview');
+            trimPreview.src = url;
+
+            trimPreview.onloadedmetadata = () => {
+                if (trimPreview.duration === Infinity) {
+                    trimPreview.currentTime = 1e101;
+                    trimPreview.ontimeupdate = () => {
+                        trimPreview.ontimeupdate = null;
+                        trimPreview.currentTime = 0;
+                        initTrimmer(trimPreview.duration);
+                    };
+                } else {
+                    initTrimmer(trimPreview.duration);
+                }
+            };
+
+            switchView('edit');
+        }
+
+        /* ==========================================================
+           2. GRABACIÓN DE CÁMARA (DESKTOP + MOBILE UNIVERSAL)
+           ========================================================== */
+        const openCamBtn = document.getElementById('openCamBtn');
+        const cancelCamBtn = document.getElementById('cancelCamBtn');
+        const flipCamBtn = document.getElementById('flipCamBtn');
+        const recStartBtn = document.getElementById('recStartBtn');
+        const recStopBtn = document.getElementById('recStopBtn');
+        const camLivePreview = document.getElementById('camLivePreview');
+        const recBadge = document.getElementById('recBadge');
+        const recTimerText = document.getElementById('recTimerText');
+
+        openCamBtn.onclick = async () => {
+            await startCamera(currentFacingMode);
+        };
+
+        cancelCamBtn.onclick = () => {
+            stopCamera();
+            switchView('start');
+        };
+
+        flipCamBtn.onclick = async () => {
+            currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+            await startCamera(currentFacingMode);
+        };
+
+        async function startCamera(facing) {
+            stopCamera();
+            try {
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: facing, width: { ideal: 720 }, height: { ideal: 1280 } },
+                    audio: true
+                });
+
+                camLivePreview.srcObject = cameraStream;
+                camLivePreview.style.transform = (facing === 'user') ? 'scaleX(-1)' : 'none';
+                switchView('camera');
+                setupAudioVU(cameraStream);
+            } catch (err) {
+                console.error("Error abriendo cámara:", err);
+                alert("No pudimos acceder a la cámara o micrófono. Por favor revisa los permisos de tu navegador.");
+            }
+        }
+
+        function stopCamera() {
+            if (audioMeterInterval) clearInterval(audioMeterInterval);
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+                cameraStream = null;
+            }
+            camLivePreview.srcObject = null;
+        }
+
+        function setupAudioVU(stream) {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const audioCtx = new AudioCtx();
+                const mic = audioCtx.createMediaStreamSource(stream);
+                const analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 64;
+                mic.connect(analyser);
+
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                const fill = document.getElementById('vuMeterFill');
+                const txt = document.getElementById('vuLevelTxt');
+
+                audioMeterInterval = setInterval(() => {
+                    analyser.getByteFrequencyData(dataArray);
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+                    const avg = Math.min(100, Math.round((sum / dataArray.length) * 1.5));
+                    fill.style.width = avg + '%';
+                    txt.innerText = avg + '%';
+                }, 60);
+            } catch (e) {
+                console.warn("Audio VU no disponible:", e);
+            }
+        }
+
+        function getSupportedMimeType() {
+            const types = [
+                'video/mp4;codecs=avc1,mp4a.40.2',
+                'video/mp4',
+                'video/webm;codecs=vp8,opus',
+                'video/webm'
+            ];
+            for (const t of types) {
+                if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) {
+                    return t;
+                }
+            }
+            return '';
+        }
+
+        recStartBtn.onclick = () => {
+            recordedChunks = [];
+            const mime = getSupportedMimeType();
+            const options = mime ? { mimeType: mime } : {};
+
+            try {
+                mediaRecorder = new MediaRecorder(cameraStream, options);
+            } catch (e) {
+                mediaRecorder = new MediaRecorder(cameraStream);
+            }
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                clearInterval(recordInterval);
+                clearTimeout(recordTimeout);
+                recBadge.style.display = 'none';
+                recStartBtn.style.display = 'inline-flex';
+                recStopBtn.style.display = 'none';
+
+                const outputType = (mediaRecorder.mimeType && mediaRecorder.mimeType.includes('mp4')) ? 'video/mp4' : 'video/webm';
+                const recordedBlob = new Blob(recordedChunks, { type: outputType });
+                stopCamera();
+
+                const recordedFile = new File([recordedBlob], "cam_record.mp4", { type: outputType });
+                handleVideoSelection(recordedFile);
+            };
+
+            mediaRecorder.start(250);
+
+            recBadge.style.display = 'inline-flex';
+            recStartBtn.style.display = 'none';
+            recStopBtn.style.display = 'inline-flex';
+
+            let secondsLeft = MAX_REC_SECONDS;
+            recTimerText.innerText = `00:00 / 00:${MAX_REC_SECONDS < 10 ? '0' : ''}${MAX_REC_SECONDS}`;
+            
+            let elapsed = 0;
+            recordInterval = setInterval(() => {
+                elapsed++;
+                recTimerText.innerText = `00:0${elapsed} / 00:${MAX_REC_SECONDS}`;
+                if (elapsed >= MAX_REC_SECONDS) {
+                    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+                }
+            }, 1000);
+        };
+
+        recStopBtn.onclick = () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        };
+
+        /* ==========================================================
+           3. TRIMMER Y CONFIGURACIÓN AUDIO-REACTIVA
+           ========================================================== */
+        const startR = document.getElementById('startRange');
+        const endR = document.getElementById('endRange');
+        const highlight = document.getElementById('rangeHighlight');
+        const timeDisp = document.getElementById('timeDisplay');
+        const trimPreview = document.getElementById('trimPreview');
+        const strengthRange = document.getElementById('strengthRange');
+        const strengthVal = document.getElementById('strengthVal');
+
+        function initTrimmer(duration) {
+            videoDuration = duration;
+            startR.max = duration;
+            endR.max = duration;
+            startR.value = 0;
+            endR.value = Math.min(duration, 5.0);
+            updateSliderUI();
+            trimPreview.currentTime = 0;
+            trimPreview.play().catch(() => {});
+        }
+
+        function updateSliderUI() {
+            let s = parseFloat(startR.value);
+            let e = parseFloat(endR.value);
+            if (s >= e - 0.2) {
+                s = Math.max(0, e - 0.2);
+                startR.value = s;
+            }
+            const leftPct = (s / (videoDuration || 1)) * 100;
+            const widthPct = ((e - s) / (videoDuration || 1)) * 100;
+            highlight.style.left = leftPct + "%";
+            highlight.style.width = widthPct + "%";
+            const diff = (e - s).toFixed(1);
+            timeDisp.innerText = `${s.toFixed(1)}s - ${e.toFixed(1)}s (${diff}s)`;
+        }
+
+        startR.oninput = () => {
+            updateSliderUI();
+            trimPreview.currentTime = parseFloat(startR.value);
+        };
+
+        endR.oninput = () => {
+            updateSliderUI();
+            trimPreview.currentTime = parseFloat(endR.value);
+        };
+
+        // Bucle de previsualización dentro del rango seleccionado
+        trimPreview.ontimeupdate = () => {
+            const s = parseFloat(startR.value);
+            const e = parseFloat(endR.value);
+            if (trimPreview.currentTime < s || trimPreview.currentTime >= e) {
+                trimPreview.currentTime = s;
+            }
+        };
+
+        strengthRange.oninput = (e) => {
+            strengthVal.innerText = e.target.value + "%";
+        };
+
+        document.getElementById('backToStartBtn').onclick = () => {
+            trimPreview.pause();
+            switchView('start');
+        };
+
+        /* ==========================================================
+           4. EL TRUCO DE SPOTIFY: BACKGROUND MEDIA KEEPALIVE EN ANDROID
+           ========================================================== */
+        let keepAliveAudio = null;
+        let wakeLockSentinel = null;
+
+        function createSilentAudioDataUri() {
+            // Genera un audio WAV silencioso en memoria de 1 segundo a 44.1kHz
+            const sampleRate = 44100;
+            const numSamples = sampleRate;
+            const buffer = new ArrayBuffer(44 + numSamples * 2);
+            const view = new DataView(buffer);
+
+            function writeString(offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + numSamples * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true); // PCM
+            view.setUint16(22, 1, true); // Mono
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, numSamples * 2, true);
+
+            // Silencio (todos los samples en 0)
+            const blob = new Blob([buffer], { type: 'audio/wav' });
+            return URL.createObjectURL(blob);
+        }
+
+        async function startBackgroundKeepAlive() {
+            try {
+                // 1. Audio elemento en bucle silencioso
+                if (!keepAliveAudio) {
+                    keepAliveAudio = new Audio();
+                    keepAliveAudio.src = createSilentAudioDataUri();
+                    keepAliveAudio.loop = true;
+                }
+                await keepAliveAudio.play().catch(e => console.warn("Keepalive audio play:", e));
+
+                // 2. MediaSession API (Notificación estilo Spotify en Android)
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: 'Barsalitsuni Video Generator ⚡🐾',
+                        artist: 'The Power of the Pudú',
+                        album: 'Iniciando render Seam Carving...',
+                        artwork: [
+                            { src: 'barsalitsuni_thumb.jpg', sizes: '480x360', type: 'image/jpeg' },
+                            { src: 'pudu/pudu_001.jpg', sizes: '150x150', type: 'image/jpeg' }
+                        ]
+                    });
+
+                    navigator.mediaSession.playbackState = 'playing';
+                    navigator.mediaSession.setActionHandler('play', () => keepAliveAudio && keepAliveAudio.play());
+                    navigator.mediaSession.setActionHandler('pause', () => {});
+                }
+
+                // 3. Screen WakeLock (evita que la pantalla se apague sola)
+                if ('wakeLock' in navigator && navigator.wakeLock.request) {
+                    try {
+                        wakeLockSentinel = await navigator.wakeLock.request('screen');
+                    } catch (err) {
+                        console.warn("WakeLock request:", err);
+                    }
+                }
+            } catch (err) {
+                console.warn("KeepAlive error:", err);
+            }
+        }
+
+        function updateBackgroundKeepAlive(percent, statusText) {
+            if ('mediaSession' in navigator && navigator.mediaSession.metadata) {
+                navigator.mediaSession.metadata.album = `Procesando: ${percent}% • ${statusText}`;
+            }
+        }
+
+        function stopBackgroundKeepAlive(success = true) {
+            try {
+                if (keepAliveAudio) {
+                    keepAliveAudio.pause();
+                }
+
+                if ('mediaSession' in navigator) {
+                    if (success) {
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: '¡Render Completado! 🎉🐾',
+                            artist: 'The Power of the Pudú',
+                            album: 'Barsalitsuni Video Generator • Listo para compartir',
+                            artwork: [
+                                { src: 'barsalitsuni_thumb.jpg', sizes: '480x360', type: 'image/jpeg' }
+                            ]
+                        });
+                        navigator.mediaSession.playbackState = 'paused';
+                    }
+                }
+
+                if (wakeLockSentinel) {
+                    wakeLockSentinel.release().catch(() => {});
+                    wakeLockSentinel = null;
+                }
+
+                if (success) {
+                    // Vibración háptica en móvil
+                    if (navigator.vibrate) {
+                        navigator.vibrate([200, 100, 200, 100, 350]);
+                    }
+                    // Sonido triunfal de metal y miau
+                    playCelebrationSound();
+                }
+            } catch (err) {
+                console.warn("Stop keepalive error:", err);
+            }
+        }
+
+        // Sintetizador Web Audio API: Power chord triunfal + Miau
+        function playCelebrationSound() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioCtx();
+                const now = ctx.currentTime;
+
+                // Power Chord: E2 (82.4Hz), B2 (123.5Hz), E3 (164.8Hz)
+                const freqs = [82.4, 123.5, 164.8];
+                freqs.forEach(f => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(f, now);
+                    
+                    gain.gain.setValueAtTime(0.12, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 1.2);
+                });
+
+                // Sonido Gatito ("Miau" chirp frequency sweep)
+                const catOsc = ctx.createOscillator();
+                const catGain = ctx.createGain();
+                catOsc.type = 'sine';
+                catOsc.frequency.setValueAtTime(650, now + 0.4);
+                catOsc.frequency.exponentialRampToValueAtTime(1100, now + 0.7);
+                catOsc.frequency.exponentialRampToValueAtTime(800, now + 1.1);
+
+                catGain.gain.setValueAtTime(0.001, now + 0.4);
+                catGain.gain.linearRampToValueAtTime(0.15, now + 0.6);
+                catGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+                catOsc.connect(catGain);
+                catGain.connect(ctx.destination);
+                catOsc.start(now + 0.4);
+                catOsc.stop(now + 1.2);
+            } catch (e) {
+                // Audio no esencial
+            }
+        }
+
+        /* ==========================================================
+           5. ANIMACIÓN PUDÚ 3D EN CANVAS (CON FALLBACK VIDEO)
+           ========================================================== */
+        const puduCanvas = document.getElementById('puduCanvas');
+        const puduCtx = puduCanvas.getContext('2d');
+        const puduVideoFallback = document.getElementById('puduVideoFallback');
+        const PUDU_TOTAL = 361;
+        const puduFrames = [];
+        let puduLoadedCount = 0;
+        let puduFrameIndex = 0;
+        let puduLastDraw = 0;
+        const PUDU_INTERVAL = 1000 / 30; // 30 FPS
+
+        // Carga progresiva de fotogramas del Pudú
+        for (let i = 1; i <= PUDU_TOTAL; i++) {
+            const img = new Image();
+            img.src = `pudu/pudu_${String(i).padStart(3, '0')}.jpg`;
+            img.onload = () => {
+                puduLoadedCount++;
+            };
+            img.onerror = () => {
+                // Si faltan imágenes, activar fallback en video MP4
+                puduCanvas.style.display = 'none';
+                puduVideoFallback.style.display = 'block';
+            };
+            puduFrames.push(img);
+        }
+
+        function loopPudu(timestamp) {
+            if (views.processing.classList.contains('active')) {
+                if (puduLoadedCount >= 30) {
+                    if (timestamp - puduLastDraw >= PUDU_INTERVAL) {
+                        puduCtx.clearRect(0, 0, 160, 160);
+                        if (puduFrames[puduFrameIndex] && puduFrames[puduFrameIndex].complete) {
+                            puduCtx.drawImage(puduFrames[puduFrameIndex], 0, 0, 160, 160);
+                        }
+                        puduFrameIndex = (puduFrameIndex + 1) % PUDU_TOTAL;
+                        puduLastDraw = timestamp;
+                    }
+                }
+            }
+            requestAnimationFrame(loopPudu);
+        }
+        requestAnimationFrame(loopPudu);
+
+        // Frases inspiradoras de The Power of the Pudú durante el render
+        const metalMantras = [
+            "\"Respira y medita mientras el pudú y el gatito del final licúan tu video...\"",
+            "\"¡El Poder del Pudú! Destruyendo y recreando cada pixel con metal andino...\"",
+            "\"El kodkod acecha entre los fotogramas desvaneciendo las costuras espaciales...\"",
+            "\"Procesando a toda potencia sin quemar tu celular. ¡Fuerza Pudú!\"",
+            "\"¡Barsalitsuni! El gatito del final ya casi tiene listo tu video líquido...\""
+        ];
+        let mantraIdx = 0;
+        setInterval(() => {
+            if (views.processing.classList.contains('active')) {
+                mantraIdx = (mantraIdx + 1) % metalMantras.length;
+                document.getElementById('metalMantra').innerText = metalMantras[mantraIdx];
+            }
+        }, 4500);
+
+        /* ==========================================================
+           6. PIPELINE PRINCIPAL: AUDIO-REACTIVE SEAM CARVING
+           ========================================================== */
+        const startRenderBtn = document.getElementById('startRenderBtn');
+        const processStatus = document.getElementById('processStatus');
+        const progressBar = document.getElementById('progressBar');
+        const frameCounter = document.getElementById('frameCounter');
+
+        startRenderBtn.onclick = async () => {
+            switchView('processing');
+            await startBackgroundKeepAlive();
+
+            try {
+                processStatus.innerText = "Cargando motor FFmpeg...";
+                progressBar.value = 5;
+                frameCounter.innerText = "5%";
+
+                if (!ffmpeg.isLoaded()) {
+                    await ffmpeg.load();
+                }
+
+                const startTime = parseFloat(startR.value);
+                const duration = Math.max(0.5, parseFloat(endR.value) - startTime);
+                const [targetW, targetH] = document.getElementById('resSelect').value.split('|').map(Number);
+                const strength = parseInt(document.getElementById('strengthRange').value) / 100;
+                const axisMode = document.getElementById('axisSelect').value;
+                const polarity = document.getElementById('polaritySelect').value;
+                const smoothMode = document.getElementById('smoothSelect').value;
+                const fps = parseInt(document.getElementById('fpsSelect').value);
+                const applyPitchShift = document.getElementById('pitchShiftCheck').checked;
+
+                // Escribir video de entrada en FS virtual de FFmpeg
+                processStatus.innerText = "Leyendo archivo de video...";
+                await ffmpeg.FS('writeFile', 'in_source.mp4', await fetchFile(selectedBlob));
+
+                // 1. Extraer audio crudo
+                processStatus.innerText = "Extrayendo y analizando pista de audio...";
+                progressBar.value = 15;
+                updateBackgroundKeepAlive(15, "Analizando audio...");
+
+                await ffmpeg.run(
+                    '-ss', startTime.toString(),
+                    '-t', duration.toString(),
+                    '-i', 'in_source.mp4',
+                    '-ar', '44100',
+                    '-ac', '1',
+                    '-f', 's16le',
+                    'audio.raw'
+                );
+
+                // 2. Extraer fotogramas a la resolución seleccionada
+                processStatus.innerText = `Extrayendo fotogramas a ${fps} FPS...`;
+                progressBar.value = 25;
+                updateBackgroundKeepAlive(25, "Extrayendo fotogramas...");
+
+                await ffmpeg.run(
+                    '-ss', startTime.toString(),
+                    '-t', duration.toString(),
+                    '-i', 'in_source.mp4',
+                    '-vf', `fps=${fps},scale=${targetW}:${targetH}`,
+                    '-q:v', '2',
+                    'f_%05d.jpg'
+                );
+
+                const frames = ffmpeg.FS('readdir', '/').filter(f => f.startsWith('f_')).sort();
+                if (frames.length === 0) throw new Error("No se extrajeron fotogramas del video.");
+
+                // Analizar envolvente RMS del audio
+                const rawAudioData = ffmpeg.FS('readFile', 'audio.raw');
+                const rawAudioLevels = computeAudioEnvelope(rawAudioData, fps, frames.length);
+                const audioLevels = (smoothMode === 'smooth') ? smoothAudioCurve(rawAudioLevels, 2) : rawAudioLevels;
+
+                // Opcional: Procesar pitch shift líquido en el audio
+                if (applyPitchShift) {
+                    processStatus.innerText = "Aplicando Pitch Shift Líquido al audio...";
+                    await ffmpeg.run('-i', 'in_source.mp4', '-ss', startTime.toString(), '-t', duration.toString(), 'audio.wav');
+                    const audioWavData = ffmpeg.FS('readFile', 'audio.wav');
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    const actx = new AudioCtx();
+                    const decoded = await actx.decodeAudioData(audioWavData.buffer);
+                    const shifted = await applyLiquidPitchShift(decoded, actx, strength * 1.5);
+                    const shiftedWavBlob = bufferToWav(shifted);
+                    ffmpeg.FS('writeFile', 'processed_audio.wav', new Uint8Array(await shiftedWavBlob.arrayBuffer()));
+                }
+
+                // 3. Reactor Líquido: Web Workers Pool para Seam Carving
+                processStatus.innerText = `Reactor Seam Carving activo (0/${frames.length})...`;
+                const CORES = Math.max(2, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
+                const workers = Array.from({ length: CORES }, () => new Worker('videoWorker.js'));
+
+                let completedFrames = 0;
+
+                const processSingleFrame = (idx) => new Promise(async (resolve, reject) => {
+                    try {
+                        const frameBytes = ffmpeg.FS('readFile', frames[idx]);
+                        const bitmap = await createImageBitmap(new Blob([frameBytes.buffer]));
+                        const canvas = new OffscreenCanvas(targetW, targetH);
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(bitmap, 0, 0);
+                        const imgData = ctx.getImageData(0, 0, targetW, targetH);
+
+                        // Cálculo de deformación basado en envolvente de audio
+                        const vol = Math.pow(audioLevels[idx] || 0, 1.4);
+                        const reactiveFactor = (polarity === 'positive') ? vol : (1.0 - vol);
+                        const deformAmount = Math.min(0.85, strength * reactiveFactor);
+
+                        let tW = targetW;
+                        let tH = targetH;
+
+                        if (axisMode === 'horizontal') {
+                            tW = Math.max(16, Math.round(targetW * (1.0 - deformAmount * 0.65)));
+                        } else if (axisMode === 'vertical') {
+                            tH = Math.max(16, Math.round(targetH * (1.0 - deformAmount * 0.65)));
+                        } else if (axisMode === 'dual') {
+                            tW = Math.max(16, Math.round(targetW * (1.0 - deformAmount * 0.55)));
+                            tH = Math.max(16, Math.round(targetH * (1.0 - deformAmount * 0.40)));
+                        }
+
+                        const worker = workers[idx % CORES];
+
+                        const handleMessage = async (msg) => {
+                            if (msg.data.index !== idx) return;
+                            worker.removeEventListener('message', handleMessage);
+
+                            // Reescalar de vuelta al tamaño target
+                            const outCanvas = new OffscreenCanvas(targetW, targetH);
+                            const tempCanvas = new OffscreenCanvas(msg.data.finalW, msg.data.finalH);
+                            const finalImgData = new ImageData(new Uint8ClampedArray(msg.data.processedPixels), msg.data.finalW, msg.data.finalH);
+                            tempCanvas.getContext('2d').putImageData(finalImgData, 0, 0);
+                            outCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, targetW, targetH);
+
+                            const jpegBlob = await outCanvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
+                            const paddedIndex = idx.toString().padStart(5, '0');
+                            ffmpeg.FS('writeFile', `v_${paddedIndex}.jpg`, new Uint8Array(await jpegBlob.arrayBuffer()));
+                            ffmpeg.FS('unlink', frames[idx]);
+
+                            completedFrames++;
+                            const pct = Math.round(30 + (completedFrames / frames.length) * 55);
+                            progressBar.value = pct;
+                            frameCounter.innerText = `${pct}% (${completedFrames}/${frames.length})`;
+                            processStatus.innerText = `Reactor Seam Carving: ${completedFrames}/${frames.length}`;
+                            updateBackgroundKeepAlive(pct, `${completedFrames}/${frames.length} frames`);
+
+                            resolve();
+                        };
+
+                        worker.addEventListener('message', handleMessage);
+                        worker.postMessage({
+                            pixels: imgData.data.buffer,
+                            width: targetW,
+                            height: targetH,
+                            targetW: tW,
+                            targetH: tH,
+                            index: idx
+                        }, [imgData.data.buffer]);
+
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+
+                // Procesamiento por lotes adaptativos para evitar saturar memoria
+                for (let i = 0; i < frames.length; i += CORES) {
+                    const batch = [];
+                    for (let j = 0; j < CORES && (i + j) < frames.length; j++) {
+                        batch.push(processSingleFrame(i + j));
+                    }
+                    await Promise.all(batch);
+                }
+
+                workers.forEach(w => w.terminate());
+
+                // 4. Ensamblar video final con audio
+                processStatus.innerText = "Ensamblando video y audio final con H.264...";
+                progressBar.value = 90;
+                updateBackgroundKeepAlive(90, "Ensamblando video...");
+
+                const audioInputArgs = applyPitchShift 
+                    ? ['-i', 'processed_audio.wav']
+                    : ['-f', 's16le', '-ar', '44100', '-ac', '1', '-i', 'audio.raw'];
+
+                await ffmpeg.run(
+                    '-framerate', fps.toString(),
+                    '-i', 'v_%05d.jpg',
+                    ...audioInputArgs,
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-pix_fmt', 'yuv420p',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
+                    '-shortest',
+                    'barsalitsuni_out.mp4'
+                );
+
+                progressBar.value = 100;
+                frameCounter.innerText = "100%";
+                processStatus.innerText = "¡Video generado con éxito!";
+
+                // 5. Leer resultado y preparar vistas
+                const finalBytes = ffmpeg.FS('readFile', 'barsalitsuni_out.mp4');
+                finalVideoBlob = new Blob([finalBytes.buffer], { type: 'video/mp4' });
+                finalVideoFile = new File([finalVideoBlob], "barsalitsuni_video.mp4", { type: 'video/mp4' });
+
+                const finalUrl = URL.createObjectURL(finalVideoBlob);
+                const finalVideoEl = document.getElementById('finalVideo');
+                finalVideoEl.src = finalUrl;
+                finalVideoEl.play().catch(() => {});
+
+                const downloadBtn = document.getElementById('downloadBtn');
+                downloadBtn.href = finalUrl;
+                downloadBtn.download = `barsalitsuni_${Date.now()}.mp4`;
+
+                // Limpieza de archivos en FS virtual de FFmpeg
+                try {
+                    ffmpeg.FS('unlink', 'in_source.mp4');
+                    ffmpeg.FS('unlink', 'audio.raw');
+                    ffmpeg.FS('unlink', 'barsalitsuni_out.mp4');
+                    const leftovers = ffmpeg.FS('readdir', '/').filter(f => f.startsWith('v_'));
+                    leftovers.forEach(f => ffmpeg.FS('unlink', f));
+                } catch(e) {}
+
+                stopBackgroundKeepAlive(true);
+                switchView('result');
+                showToast("⚡ ¡Video Barsalitsuni renderizado con éxito!");
+
+            } catch (err) {
+                console.error("Error en render:", err);
+                stopBackgroundKeepAlive(false);
+                alert("Ocurrió un error durante el procesamiento: " + err.message);
+                switchView('edit');
+            }
+        };
+
+        /* ==========================================================
+           7. ANÁLISIS Y SUAVIZADO DE AUDIO
+           ========================================================== */
+        function computeAudioEnvelope(uint8Data, fps, totalFrames) {
+            // Construcción segura de Int16Array respetando byteOffset
+            const samples = new Int16Array(
+                uint8Data.buffer,
+                uint8Data.byteOffset,
+                Math.floor(uint8Data.byteLength / 2)
+            );
+
+            const samplesPerFrame = Math.floor(44100 / fps);
+            const rmsLevels = [];
+            let maxRMS = 0.0001;
+
+            for (let i = 0; i < totalFrames; i++) {
+                const start = i * samplesPerFrame;
+                const end = Math.min(start + samplesPerFrame, samples.length);
+                let sum = 0;
+                let count = 0;
+
+                for (let k = start; k < end; k++) {
+                    const s = samples[k];
+                    sum += s * s;
+                    count++;
+                }
+
+                const rms = (count > 0) ? Math.sqrt(sum / count) : 0;
+                if (rms > maxRMS) maxRMS = rms;
+                rmsLevels.push(rms);
+            }
+
+            // Normalización 0.0 a 1.0
+            return rmsLevels.map(v => v / maxRMS);
+        }
+
+        function smoothAudioCurve(raw, radius = 2) {
+            const len = raw.length;
+            const smoothed = new Float32Array(len);
+            for (let i = 0; i < len; i++) {
+                const start = Math.max(0, i - radius);
+                const end = Math.min(len - 1, i + radius);
+                let sum = 0;
+                let count = 0;
+                for (let j = start; j <= end; j++) {
+                    sum += raw[j];
+                    count++;
+                }
+                smoothed[i] = sum / count;
+            }
+            return smoothed;
+        }
+
+        /* ==========================================================
+           8. COMPARTIR EN INSTAGRAM / TIKTOK / WHATSAPP
+           ========================================================== */
+        const nativeShareBtn = document.getElementById('nativeShareBtn');
+        const whatsAppBtn = document.getElementById('whatsAppBtn');
+        const restartBtn = document.getElementById('restartBtn');
+
+        nativeShareBtn.onclick = async () => {
+            if (!finalVideoFile) return;
+
+            const shareData = {
+                title: 'Barsalitsuni Video Generator',
+                text: '¡Mira mi video con The Power of the Pudú y Barsalitsuni! 🦌⚡🐾',
+                files: [finalVideoFile]
+            };
+
+            if (navigator.canShare && navigator.canShare({ files: [finalVideoFile] })) {
+                try {
+                    await navigator.share(shareData);
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.warn("Share error:", err);
+                    }
+                }
+            } else if (navigator.share) {
+                // Fallback sin archivo (algunos navegadores desktop)
+                try {
+                    await navigator.share({
+                        title: shareData.title,
+                        text: shareData.text,
+                        url: window.location.href
+                    });
+                } catch (err) {}
+            } else {
+                // Descarga automática en navegadores sin Web Share
+                document.getElementById('downloadBtn').click();
+                showToast("💾 Video descargado. ¡Listo para subir a tus redes!");
+            }
+        };
+
+        whatsAppBtn.onclick = async () => {
+            if (navigator.canShare && navigator.canShare({ files: [finalVideoFile] })) {
+                try {
+                    await navigator.share({
+                        title: 'Barsalitsuni Video',
+                        text: '¡Video Barsalitsuni (The Power of the Pudú)! 🐾⚡',
+                        files: [finalVideoFile]
+                    });
+                    return;
+                } catch(e) {}
+            }
+            
+            // Fallback a enlace WhatsApp
+            const text = encodeURIComponent("¡Mira este video procesado con Barsalitsuni Video Generator de The Power of the Pudú! 🦌⚡🐾");
+            window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+        };
+
+        restartBtn.onclick = () => {
+            document.getElementById('finalVideo').pause();
+            selectedFile = null;
+            selectedBlob = null;
+            finalVideoBlob = null;
+            finalVideoFile = null;
+            videoInput.value = "";
+            switchView('start');
+        };
+
+    </script>
+</body>
+
+</html>

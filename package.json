@@ -1,0 +1,23 @@
+{
+  "name": "barsalitsuni",
+  "version": "2.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "cert": "openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -sha256 -days 365 -nodes -subj \"/C=US/ST=Local/L=Local/O=Development/CN=localhost\""
+  },
+  "keywords": [
+    "seam-carving",
+    "audio-reactive",
+    "liquid-rescale",
+    "barsalitsuni",
+    "the-power-of-the-pudu"
+  ],
+  "author": "The Power of the Pudú",
+  "license": "ISC",
+  "description": "Barsalitsuni Video Generator - Audio-reactive Seam Carving Video Processing",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

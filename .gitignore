@@ -1,0 +1,13 @@
+node_modules/
+*.pem
+*.rar
+*.zip
+*.bak
+*recovery-codes*
+Releases/
+Liquidv2/
+"procesamiento audio"/
+public/indexWENO*
+public/videoWorkerEXOTICO*
+.DS_Store
+Thumbs.db
