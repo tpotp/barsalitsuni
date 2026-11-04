@@ -882,12 +882,29 @@
            The Power of the Pudú • El Gatito del Final
            ========================================================== */
 
-        // FFmpeg Initialization
-        const { createFFmpeg, fetchFile } = FFmpeg;
-        const ffmpeg = createFFmpeg({
-            log: false,
-            corePath: 'ffmpeg-core.js'
+        // FFmpeg Initialization con resolución absoluta de origen
+        const { createFFmpeg } = FFmpeg;
+        const coreUrl = new URL('ffmpeg-core.js', window.location.href).href;
+        let ffmpeg = createFFmpeg({
+            log: true,
+            corePath: coreUrl
         });
+
+        async function ensureFFmpegLoaded() {
+            if (ffmpeg && ffmpeg.isLoaded()) return;
+            try {
+                processStatus.innerText = "Cargando motor FFmpeg...";
+                await ffmpeg.load();
+            } catch (err) {
+                console.warn("Fallo cargando FFmpeg local, activando CDN fallback...", err);
+                processStatus.innerText = "Reintentando motor FFmpeg (CDN)...";
+                ffmpeg = createFFmpeg({
+                    log: true,
+                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+                });
+                await ffmpeg.load();
+            }
+        }
 
         // Application State
         let selectedFile = null;
@@ -1439,9 +1456,7 @@
                 progressBar.value = 5;
                 frameCounter.innerText = "5%";
 
-                if (!ffmpeg.isLoaded()) {
-                    await ffmpeg.load();
-                }
+                await ensureFFmpegLoaded();
 
                 const startTime = parseFloat(startR.value);
                 const duration = Math.max(0.5, parseFloat(endR.value) - startTime);
@@ -1467,9 +1482,10 @@
                 const fps = parseInt(document.getElementById('fpsSelect').value);
                 const applyPitchShift = document.getElementById('pitchShiftCheck').checked;
 
-                // Escribir video de entrada en FS virtual de FFmpeg
+                // Escribir video de entrada en FS virtual de FFmpeg directamente desde memoria
                 processStatus.innerText = "Leyendo archivo de video...";
-                await ffmpeg.FS('writeFile', 'in_source.mp4', await fetchFile(selectedBlob));
+                const videoArrayBuffer = await selectedBlob.arrayBuffer();
+                ffmpeg.FS('writeFile', 'in_source.mp4', new Uint8Array(videoArrayBuffer));
 
                 // 1. Extraer audio crudo
                 processStatus.innerText = "Extrayendo y analizando pista de audio...";
