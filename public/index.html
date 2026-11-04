@@ -9,6 +9,7 @@
     <meta name="theme-color" content="#070b09">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐾</text></svg>">
 
     <!-- Fuentes y librerías -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -857,6 +858,9 @@
                     <button class="btn btn-outline" id="whatsAppBtn">
                         💬 WHATSAPP
                     </button>
+                    <button class="btn btn-outline" id="copyLinkBtn">
+                        🔗 COPIAR LINK
+                    </button>
                     <button class="btn btn-outline btn-full" id="restartBtn" style="margin-top: 4px;">
                         🔄 PROCESAR OTRO VIDEO
                     </button>
@@ -1441,7 +1445,21 @@
 
                 const startTime = parseFloat(startR.value);
                 const duration = Math.max(0.5, parseFloat(endR.value) - startTime);
-                const [targetW, targetH] = document.getElementById('resSelect').value.split('|').map(Number);
+                const [baseW, baseH] = document.getElementById('resSelect').value.split('|').map(Number);
+                
+                // Detección automática de orientación (Horizontal / Vertical / Cuadrado)
+                let targetW = baseW;
+                let targetH = baseH;
+                if (trimPreview.videoWidth && trimPreview.videoHeight) {
+                    if (trimPreview.videoWidth > trimPreview.videoHeight * 1.15) {
+                        targetW = baseH;
+                        targetH = baseW;
+                    } else if (Math.abs(trimPreview.videoWidth - trimPreview.videoHeight) <= 30) {
+                        targetW = baseW;
+                        targetH = baseW;
+                    }
+                }
+
                 const strength = parseInt(document.getElementById('strengthRange').value) / 100;
                 const axisMode = document.getElementById('axisSelect').value;
                 const polarity = document.getElementById('polaritySelect').value;
@@ -1458,15 +1476,21 @@
                 progressBar.value = 15;
                 updateBackgroundKeepAlive(15, "Analizando audio...");
 
-                await ffmpeg.run(
-                    '-ss', startTime.toString(),
-                    '-t', duration.toString(),
-                    '-i', 'in_source.mp4',
-                    '-ar', '44100',
-                    '-ac', '1',
-                    '-f', 's16le',
-                    'audio.raw'
-                );
+                let hasAudio = false;
+                try {
+                    await ffmpeg.run(
+                        '-ss', startTime.toString(),
+                        '-t', duration.toString(),
+                        '-i', 'in_source.mp4',
+                        '-ar', '44100',
+                        '-ac', '1',
+                        '-f', 's16le',
+                        'audio.raw'
+                    );
+                    hasAudio = true;
+                } catch (audioErr) {
+                    console.warn("Video sin audio o extracción fallida, usando ritmo sintético:", audioErr);
+                }
 
                 // 2. Extraer fotogramas a la resolución seleccionada
                 processStatus.innerText = `Extrayendo fotogramas a ${fps} FPS...`;
@@ -1485,13 +1509,25 @@
                 const frames = ffmpeg.FS('readdir', '/').filter(f => f.startsWith('f_')).sort();
                 if (frames.length === 0) throw new Error("No se extrajeron fotogramas del video.");
 
-                // Analizar envolvente RMS del audio
-                const rawAudioData = ffmpeg.FS('readFile', 'audio.raw');
-                const rawAudioLevels = computeAudioEnvelope(rawAudioData, fps, frames.length);
+                // Analizar envolvente RMS del audio o generar ritmo sintético
+                let rawAudioLevels = [];
+                if (hasAudio) {
+                    const rawAudioData = ffmpeg.FS('readFile', 'audio.raw');
+                    rawAudioLevels = computeAudioEnvelope(rawAudioData, fps, frames.length);
+                } else {
+                    const framesPerBeat = Math.max(1, Math.round(fps * 60 / 130)); // 130 BPM
+                    for (let i = 0; i < frames.length; i++) {
+                        const beatPos = (i % framesPerBeat) / framesPerBeat;
+                        const pulse = Math.pow(Math.max(0, 1 - beatPos * 2.2), 2);
+                        rawAudioLevels.push(pulse);
+                    }
+                    const silentAudio = new Uint8Array(frames.length * Math.floor(44100 / fps) * 2);
+                    ffmpeg.FS('writeFile', 'audio.raw', silentAudio);
+                }
                 const audioLevels = (smoothMode === 'smooth') ? smoothAudioCurve(rawAudioLevels, 2) : rawAudioLevels;
 
                 // Opcional: Procesar pitch shift líquido en el audio
-                if (applyPitchShift) {
+                if (applyPitchShift && hasAudio) {
                     processStatus.innerText = "Aplicando Pitch Shift Líquido al audio...";
                     await ffmpeg.run('-i', 'in_source.mp4', '-ss', startTime.toString(), '-t', duration.toString(), 'audio.wav');
                     const audioWavData = ffmpeg.FS('readFile', 'audio.wav');
@@ -1760,6 +1796,22 @@
             const text = encodeURIComponent("¡Mira este video procesado con Barsalitsuni Video Generator de The Power of the Pudú! 🦌⚡🐾");
             window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
         };
+
+        const copyLinkBtn = document.getElementById('copyLinkBtn');
+        if (copyLinkBtn) {
+            copyLinkBtn.onclick = () => {
+                const url = window.location.origin || 'https://barsalitsuni.vercel.app';
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(url).then(() => {
+                        showToast("📋 ¡Enlace copiado al portapapeles!");
+                    }).catch(() => {
+                        showToast("🐾 " + url);
+                    });
+                } else {
+                    showToast("🐾 " + url);
+                }
+            };
+        }
 
         restartBtn.onclick = () => {
             document.getElementById('finalVideo').pause();
