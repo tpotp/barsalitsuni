@@ -882,12 +882,13 @@
            The Power of the Pudú • El Gatito del Final
            ========================================================== */
 
-        // FFmpeg Initialization con resolución absoluta de origen
+        // FFmpeg Initialization con CDN Cloudflare (0 costo de transferencia) y fallback
         const { createFFmpeg } = FFmpeg;
-        const coreUrl = new URL('ffmpeg-core.js', window.location.href).href;
+        const cfCoreUrl = 'https://tpotp-pudu-cdn.pages.dev/barsalitsuni/ffmpeg-core.js';
+        const localCoreUrl = new URL('ffmpeg-core.js', window.location.href).href;
         let ffmpeg = createFFmpeg({
             log: true,
-            corePath: coreUrl
+            corePath: cfCoreUrl
         });
 
         async function ensureFFmpegLoaded() {
@@ -896,13 +897,22 @@
                 processStatus.innerText = "Cargando motor FFmpeg...";
                 await ffmpeg.load();
             } catch (err) {
-                console.warn("Fallo cargando FFmpeg local, activando CDN fallback...", err);
-                processStatus.innerText = "Reintentando motor FFmpeg (CDN)...";
-                ffmpeg = createFFmpeg({
-                    log: true,
-                    corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
-                });
-                await ffmpeg.load();
+                console.warn("Fallo cargando FFmpeg desde CDN Cloudflare, reintentando con origen...", err);
+                try {
+                    ffmpeg = createFFmpeg({
+                        log: true,
+                        corePath: localCoreUrl
+                    });
+                    await ffmpeg.load();
+                } catch (localErr) {
+                    console.warn("Fallo cargando FFmpeg local, activando unpkg fallback...", localErr);
+                    processStatus.innerText = "Reintentando motor FFmpeg (CDN)...";
+                    ffmpeg = createFFmpeg({
+                        log: true,
+                        corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+                    });
+                    await ffmpeg.load();
+                }
             }
         }
 
