@@ -1604,12 +1604,30 @@
                             if (msg.data.index !== idx) return;
                             worker.removeEventListener('message', handleMessage);
 
-                            // Reescalar de vuelta al tamaño target
+                            // Reescalar de vuelta al tamaño target y estampar marca discreta
                             const outCanvas = new OffscreenCanvas(targetW, targetH);
+                            const outCtx = outCanvas.getContext('2d');
                             const tempCanvas = new OffscreenCanvas(msg.data.finalW, msg.data.finalH);
                             const finalImgData = new ImageData(new Uint8ClampedArray(msg.data.processedPixels), msg.data.finalW, msg.data.finalH);
                             tempCanvas.getContext('2d').putImageData(finalImgData, 0, 0);
-                            outCanvas.getContext('2d').drawImage(tempCanvas, 0, 0, targetW, targetH);
+                            outCtx.drawImage(tempCanvas, 0, 0, targetW, targetH);
+
+                            const wmFont = Math.max(11, Math.min(18, Math.round(Math.min(targetW, targetH) * 0.028)));
+                            const wmLabel = 'barsalitsuni.vercel.app · The Power Of The Pudú';
+                            outCtx.save();
+                            outCtx.font = `700 ${wmFont}px system-ui, -apple-system, sans-serif`;
+                            const wmW = outCtx.measureText(wmLabel).width + wmFont * 1.4;
+                            const wmH = wmFont * 1.7;
+                            const wmX = Math.max(10, Math.round(targetW * 0.03));
+                            const wmY = Math.max(10, Math.round(targetH * 0.03));
+                            outCtx.fillStyle = 'rgba(8, 10, 18, 0.72)';
+                            outCtx.beginPath();
+                            outCtx.roundRect(wmX, wmY, wmW, wmH, wmH * 0.5);
+                            outCtx.fill();
+                            outCtx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+                            outCtx.textBaseline = 'middle';
+                            outCtx.fillText(wmLabel, wmX + wmFont * 0.7, wmY + wmH * 0.52);
+                            outCtx.restore();
 
                             const jpegBlob = await outCanvas.convertToBlob({ type: 'image/jpeg', quality: 0.85 });
                             const paddedIndex = idx.toString().padStart(5, '0');
